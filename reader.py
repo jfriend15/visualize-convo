@@ -108,7 +108,7 @@ e1_words = clean_words(e1)
 e2_words = clean_words(e2)
 
 all_words = e1_words.copy()
-all_words.extend(e2_words.copy())
+all_words.extend(e2_words.copy()) # => content determines shapes
 
 e1_vocab = set(e1_words)
 e2_vocab = set(e2_words)

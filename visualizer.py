@@ -30,16 +30,6 @@ class Canvas(object):
 		self.bg(self.cr, [1, 0.7, 1])
 		cr.restore()
 
-		# Border
-		'''
-		cr.save()
-		cr.set_line_width( max(cr.device_to_user_distance(2,2)) )
-		cr.set_source_rgb(0,0,0)
-		cr.rectangle(0,0,1,1)
-		cr.stroke()
-		cr.restore()
-		'''
-
 		cr.save()
 		self.line(self.cr)
 		cr.restore()
@@ -47,6 +37,18 @@ class Canvas(object):
 		cr.save()
 		self.circle(self.cr)
 		cr.restore()
+
+		cr.save()
+		self.rectangle(self.cr)
+		cr.restore()
+
+		cr.save()
+		self.bezier(self.cr)
+		cr.restore()
+
+		#cr.save()
+		#self.pat(self.cr)
+		#cr.restore()
 
 		# Save
 		self.surface.write_to_png('images/' + filename + '.png')
@@ -65,9 +67,18 @@ class Canvas(object):
 	def line(self, cr):
 		cr.set_source_rgb(0,0,0)
 		cr.set_line_width(9)
+		cr.set_dash([5, 15, 2]) # [on, off, on]
+		#cr.set_line_cap(cairo.LINE_CAP_SQUARE) # or BUTT, ROUND
 
 		cr.move_to(.25 * self.width,.25 * self.height)
 		cr.line_to(0.9 * self.width,0.9 * self.height)
+		cr.stroke()
+
+	def rectangle(self, cr):
+		cr.set_line_width(10)
+		cr.set_source_rgba(.3,.3,0,0.6)
+		cr.set_line_join(cairo.LINE_JOIN_BEVEL)
+		cr.rectangle(20,20,100,200)
 		cr.stroke()
 
 	def circle(self, cr):
@@ -77,7 +88,7 @@ class Canvas(object):
 
 		w,h = self.get_size() # check
 
-		cr.translate(w/2, h/2)
+		cr.translate(w/2, h/2) # or change scale between the 2 values to get ellipse
 		cr.arc(0,0,.5 * w,0,2*math.pi)
 		cr.stroke_preserve()
 
@@ -85,40 +96,24 @@ class Canvas(object):
 		cr.fill()
 		#cr.restore()
 
+	def bezier(self, cr):
+		cr.move_to(30,30)
+		cr.curve_to(320, 200, 330, 110, 50, 40)
+		cr.stroke()
+
+	# for complex shapes, successively move_to and curve_to next
+	# point in an array of points
+
+	def pat(self, cr):
+		sr1 = cairo.ImageSurface.create_from_png("pat-ex.png")
+		pt1 = cairo.SurfacePattern(sr1)
+		pt1.set_extend(cairo.EXTEND_REPEAT)
+
+		cr.set_source(pt1)
+		cr.rectangle(50,70,200,200)
+		cr.fill()
+
 
 c = Canvas('cairo_test3', 400, 300)
 
-'''
-# Sets color and transparency
-cr.set_source_rgba(r,g,b,a)
-
-cr.move_to(0.25,0.25) # start point
-cr.line_to(1,1) # end point
-cr.set_line_width(0.2)
-cr.stroke() # makes mark
-
-cr.rectangle(0,0,0.5,0.5)
-cr.set_source_rgba(1,0,0,0.8)
-cr.fill()
-'''
-
-'''surface = cairo.SVGSurface('cairo_test.svg', 300, 300)
-cr = cairo.Context(surface)
-
-cr.set_source_rgb(0.9,0.9,0.9)
-cr.paint()
-
-x,y,w,h = 40,40,80,24
-
-cr.set_source_rgb(0.6,0.6,0.6)
-cr.rectangle(x,y,w,h)
-cr.stroke()
-
-cr.save() # necessary?
-cr.set_source_rgb(.2,.3,.4)
-cr.rectangle(x,y,w,h)
-cr.clip()
-cr.paint()
-cr.restore()
-'''
 
