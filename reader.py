@@ -1,7 +1,7 @@
 """
 Reader and interpreter.
 
-First 4 methods from:
+clean_words, freq_dist, and collocations:
 	Tim Strehle @ https://www.strehle.de/tim/weblog/archives/2015/09/03/1569
 	https://itnext.io/basics-of-text-analysis-visualization-1978de48af47
 
@@ -19,10 +19,30 @@ from collections import defaultdict
 import re
 import numpy as np
 
+def define_entities(raw_text):
+	"""
+	Differentiate words between the two speakers. Returns a string for each.
+	"""
+	e1 = ''
+	e2 = ''
+	speaker = 1
+	raw_text.seek(0)
+	for line in raw_text.readlines():
+		if line == '\n' and speaker == 1:
+			speaker = 2
+		elif line == '\n' and speaker == 2:
+			speaker = 1
+		elif speaker == 1:
+			e1 += line
+		else:
+			e2 += line
+
+	return e1, e2
+
 def clean_words(raw_text):
 	default_stopwords = set(nltk.corpus.stopwords.words('english'))
 
-	raw_words = nltk.word_tokenize(raw_text.read())
+	raw_words = nltk.word_tokenize(raw_text)
 	words = [word for word in raw_words if len(word) > 1]
 	words = [word.lower() for word in words]
 	words = [word for word in words if word not in default_stopwords]
@@ -80,12 +100,29 @@ def sentiment_analysis(raw_text):
 filename = 'mock-convo.txt'
 raw_text = open(filename, 'r') # need utf-8?
 
-words = clean_words(raw_text)
+#all_words = clean_words(raw_text.read())
+
+e1, e2 = define_entities(raw_text)
+
+e1_words = clean_words(e1)
+e2_words = clean_words(e2)
+
+all_words = e1_words.copy()
+all_words.extend(e2_words.copy())
+
+e1_vocab = set(e1_words)
+e2_vocab = set(e2_words)
+all_vocab = set(all_words)
+
+shared = e1_vocab.intersection(e2_vocab) # => determines where local origin is
+#print(len(shared), shared)
+e1_unique = [word for word in e1_vocab if word not in shared] # => determines where shapes spawn around local origin
+e2_unique = [word for word in e2_vocab if word not in shared] # => ""
+#print(len(e1_unique))
+#print(len(e2_unique)) 
 
 
-# create vocabulary for both people
-# TODO separate vocabularies for entities
-vocab_set = set(words)
+'''vocab_set = set(vocab)
 vocab_dict = dict()
 for i, word in enumerate(vocab_set):
 	vocab_dict[word] = i
@@ -97,8 +134,8 @@ for word in words:
 	col = int(vocab_dict[word])
 	total_bow[0,col] += 1
 
-print(total_bow)
-
+#print(total_bow)
+'''
 
 
 
