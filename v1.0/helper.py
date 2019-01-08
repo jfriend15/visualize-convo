@@ -7,6 +7,7 @@ import math
 def generate_rgb(xyz):
 	'''
 	Create an rgb value from a list of three floats
+	TODO create a function that maps more intentionally
 	'''
 	def map_btwn_01(x):
 		freq = 1 # TODO custom freq
