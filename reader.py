@@ -18,6 +18,7 @@ from afinn import Afinn
 from collections import defaultdict
 import re
 import numpy as np
+import pickle
 
 def define_entities(raw_text):
 	"""
@@ -47,6 +48,14 @@ def clean_words(raw_text):
 	words = [word.lower() for word in words]
 	words = [word for word in words if word not in default_stopwords]
 
+	'''
+	TODO
+		- handle textspeak e.g. u, idk
+		- handle misspellings
+		- look into stemming e.g. playing => play
+		- handle contractions e.g. i'll => i
+	'''
+
 	return words
 
 def freq_dist(words):
@@ -55,7 +64,7 @@ def freq_dist(words):
 	fdist = nltk.FreqDist(words)
 	for word, freq in fdist.most_common(30): # just common  or total?
 		total_freqs[word] = freq
-		print(u'{};{}'.format(word, freq))
+		#print(u'{};{}'.format(word, freq))
 
 	# TODO currently keeps "'s", "'m", and "'ll." don't do that
 
@@ -93,49 +102,59 @@ def sentiment_analysis(raw_text):
 		else:
 			sentiment_summary['negative'] += 1
 
+	# TODO make it work for 1 entity
+
 	return sentiment_summary
 
 
-# TODO if system argument exists, record that file
-filename = 'mock-convo.txt'
-raw_text = open(filename, 'r') # need utf-8?
+def main():
+	# TODO something in here is really slow. what is it?
+	# how can i optimize it?
 
-#all_words = clean_words(raw_text.read())
+	# TODO if system argument exists, record that file
+	filename = 'mock-convo.txt'
+	raw_text = open(filename, 'r') # need utf-8?
 
-e1, e2 = define_entities(raw_text)
+	#all_words = clean_words(raw_text.read())
 
-e1_words = clean_words(e1)
-e2_words = clean_words(e2)
+	e1, e2 = define_entities(raw_text)
 
-all_words = e1_words.copy()
-all_words.extend(e2_words.copy()) # => content determines shapes
+	e1_words = clean_words(e1)
+	e2_words = clean_words(e2)
 
-e1_vocab = set(e1_words)
-e2_vocab = set(e2_words)
-all_vocab = set(all_words)
+	all_words = e1_words.copy()
+	all_words.extend(e2_words.copy()) # => content determines shapes
 
-shared = e1_vocab.intersection(e2_vocab) # => determines where local origin is
-#print(len(shared), shared)
-e1_unique = [word for word in e1_vocab if word not in shared] # => determines where shapes spawn around local origin
-e2_unique = [word for word in e2_vocab if word not in shared] # => ""
-#print(len(e1_unique))
-#print(len(e2_unique)) 
+	# create output object
+	convo = dict()
+	convo['sentiment'] = sentiment_analysis(raw_text)
 
+	e1_vocab = set(e1_words)
+	e2_vocab = set(e2_words)
+	all_vocab = set(all_words)
 
-'''vocab_set = set(vocab)
-vocab_dict = dict()
-for i, word in enumerate(vocab_set):
-	vocab_dict[word] = i
-vocab_size = len(vocab_dict)
-
-# TODO create bow with 2 rows, 1 per entity
-total_bow = np.zeros([1, vocab_size]) # TODO malleable for number of convos
-for word in words:
-	col = int(vocab_dict[word])
-	total_bow[0,col] += 1
-
-#print(total_bow)
-'''
+	shared = e1_vocab.intersection(e2_vocab) # => determines where local origin is
+	e1_unique = [word for word in e1_vocab if word not in shared] # => determines where shapes spawn around local origin
+	e2_unique = [word for word in e2_vocab if word not in shared] # => ""
 
 
+	'''vocab_set = set(vocab)
+	vocab_dict = dict()
+	for i, word in enumerate(vocab_set):
+		vocab_dict[word] = i
+	vocab_size = len(vocab_dict)
+
+	# TODO create bow with 2 rows, 1 per entity
+	total_bow = np.zeros([1, vocab_size]) # TODO malleable for number of convos
+	for word in words:
+		col = int(vocab_dict[word])
+		total_bow[0,col] += 1
+
+	#print(total_bow)
+	'''
+	with open('convo.pkl', 'wb') as file:
+		pickle.dump(convo, file)
+
+if __name__ == '__main__':
+	main()
 

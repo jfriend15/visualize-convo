@@ -13,21 +13,28 @@ Other resources:
 
 import cairo 
 import math
+import pickle
+
+import reader
+import helper
 
 class Canvas(object):
-	def __init__(self, filename, width, height):
+	def __init__(self, filename, convobj, width, height):
 		self.surface = cairo.SVGSurface('images/' + filename + '.svg', width, height)
 		cr = self.cr = cairo.Context(self.surface)
 
 		self.width = width
 		self.height = height
 
+		temp = [convobj['sentiment']['positive'], convobj['sentiment']['neutral'], convobj['sentiment']['negative']]
+
 		# to work with a 1x1 canvas
 		#cr.scale(width, height) 
 
 		# Background
 		cr.save()
-		self.bg(self.cr, [1, 0.7, 1])
+		#self.bg(self.cr, [1, 0.7, 1])
+		self.bg(self.cr, helper.generate_rgb(temp))
 		cr.restore()
 
 		cr.save()
@@ -113,7 +120,14 @@ class Canvas(object):
 		cr.rectangle(50,70,200,200)
 		cr.fill()
 
+def main():
+	reader.main()
+	convo = pickle.load(open('convo.pkl', 'rb'))
+	print(convo['sentiment'])
+	c = Canvas('cairo_test_integrate_1', convo, 400, 300)
 
-c = Canvas('cairo_test3', 400, 300)
+if __name__ == '__main__':
+	main()
+
 
 
