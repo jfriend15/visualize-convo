@@ -45,7 +45,6 @@ class Canvas(object):
 		c0['radius'] = c.whole.vocab_size * 10
 		cr.arc(c0['center'][0], c0['center'][1], c0['radius'], 0, 2*math.pi)
 		cr.set_source_rgba(0.8, 0.2, 0.0, 0.9)
-		#cr.stroke_preserve()
 		cr.fill()
 		
 		cr.arc(c0['center'][0], c0['center'][1], c0['radius'], 0, 2*math.pi)
@@ -65,7 +64,24 @@ class Canvas(object):
 		
 		cr.restore()
 		
-		# draw lines
+		# avg message length
+		cr.save()
+		ctr = (self.width/2 + c.e1.avg_msg_length * 5, self.height/2 + c.e2.avg_msg_length * 5)
+		cr.set_source_rgb(0.0,0.1,0.0)
+		cr.set_line_width(10)
+		
+		angle = (2 * math.pi) / c.whole.msg_count
+		hyp = c.whole.avg_msg_length * 100
+		for i in range(c.whole.msg_count):
+			theta = angle * i
+			y = hyp * math.sin(theta)
+			x = hyp * math.cos(theta)
+			
+			cr.move_to(ctr[0], ctr[1])
+			cr.line_to(ctr[0] + x, ctr[1] + y)
+			cr.stroke()
+			
+		cr.restore()
 		
 		# layer color
 		

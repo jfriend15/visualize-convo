@@ -25,6 +25,7 @@ class Convobj:
 
 			self.msg_count = len(msgs)
 			self.avg_msg_length = self.avg_msg_length(msgs)
+			# TODO add msg length variablility +=
 			self.vocab_size = len(set(words))
 			#self.vocab_depth
 
