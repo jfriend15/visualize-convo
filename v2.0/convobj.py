@@ -8,10 +8,6 @@ from nltk.corpus import stopwords
 from nltk.collocations import BigramCollocationFinder, BigramAssocMeasures
 from afinn import Afinn
 
-#nltk.download('stopwords')
-#nltk.download('punkt')
-#nltk.download('averaged_perceptron_tagger')
-
 from collections import defaultdict
 import re
 import numpy as np
@@ -21,19 +17,19 @@ class Convobj:
 
 	class Entity:
 		def __init__(self, text, name='test'):
-
+			
 			self.name = name
 
-			words = self.clean_words(text)
 			msgs = self.clean_msgs(text)
+			words = self.clean_words(msgs)
 
 			self.msg_count = len(msgs)
 			self.avg_msg_length = self.avg_msg_length(msgs)
-			#self.vocab_size
+			self.vocab_size = len(set(words))
 			#self.vocab_depth
 
 			self.sentiment_summary = self.sentiment_analysis(msgs)
-			#self.interrogativeness = self.interrogative_freq(words)
+			self.interrogativeness = self.interrogative_freq(words)
 			#self.expletive_freq
 
 
@@ -46,18 +42,25 @@ class Convobj:
 			print('ENTITY', self.name)
 
 
-		def clean_words(self, text):
+		def clean_words(self, msgs):
 			default_stopwords = set(nltk.corpus.stopwords.words('english'))
+			#lemma = nltk.wordnet.WordNetLemmatizer()
 
-			raw_words = nltk.word_tokenize(text.read())
-			words = [word for word in raw_words if len(word) > 1]
+			raw_words = []
+			for m in msgs:
+				raw_words.extend(m.split(' '))
+				
+			words = []
+			for word in raw_words:	
+				words.extend(re.findall('^[A-Za-z]+', word))
+
+			#words = [word for word in raw_words if len(word) > 1]
 			words = [word.lower() for word in words]
 			words = [word for word in words if word not in default_stopwords]
-
+			#words = [lemma.lemmatize(word) for word in words]
 			'''
 			TODO
-				- handle textspeak e.g. u, idk
-				- handle misspellings
+				- handle textspeak e.g. u, idk => another function
 				- look into stemming e.g. playing => play
 				- handle contractions e.g. i'll => i
 			'''
@@ -66,14 +69,8 @@ class Convobj:
 
 
 		def clean_msgs(self, text):
-			msgs =[]
-			text.seek(0)
-			for line in text.readlines():
-				if line != '\n':
-					line = re.sub('\n', '', line)
-					msgs.append(line)
-
-			return msgs
+			text = text.split('\n')
+			return [t for t in text if t != '']
 
 
 		def avg_msg_length(self, msgs):
@@ -128,9 +125,10 @@ class Convobj:
 			return count/len(tagged)
 
 
-		def sentiment_analysis(self, sentences):
+		def sentiment_analysis(self, sentences, freqs=True):
 			'''
-			Determines sentiment score PER MESSAGE, NOT per sentence
+			Determines sentiment score PER MESSAGE, NOT per sentence.
+			Scores can be frequencies.
 			'''
 			afinn = Afinn()
 			sentiment_summary = defaultdict(int)
@@ -145,6 +143,10 @@ class Convobj:
 					sentiment_summary['negative'] += 1
 
 			# TODO make it work for 1 entity
+			if freqs:
+				sentiment_summary['neutral'] = sentiment_summary['neutral']/len(sentences)
+				sentiment_summary['positive'] = sentiment_summary['positive']/len(sentences)
+				sentiment_summary['negative'] = sentiment_summary['negative']/len(sentences)
 
 			return sentiment_summary
 
@@ -154,9 +156,10 @@ class Convobj:
 		raw_text = open(filename, 'r')
 		e1_text, e2_text = self.define_entities(raw_text)
 		
-		#self.e1 = self.Entity(e1_text)
-		#self.e2 = self.Entity(e2_text)
-		self.whole = self.Entity(raw_text)
+		raw_text.seek(0)
+		self.e1 = self.Entity(e1_text, name='e1')
+		self.e2 = self.Entity(e2_text, name='e2')
+		self.whole = self.Entity(raw_text.read(), name='whole')
 
 
 	def define_entities(self, raw_text):
@@ -180,15 +183,27 @@ class Convobj:
 		return e1, e2
 
 	def save(self, filename='test'):
-		with open('convo' + filename + '.pkl', 'wb') as file:
+		with open('convo-' + filename + '.pkl', 'wb') as file:
 			pickle.dump(self, file)
+		file.close()
 
 
 def main():
+	
+	# Uncomment on first use of program
+	#nltk.download('stopwords')
+	#nltk.download('punkt')
+	#nltk.download('averaged_perceptron_tagger')
+	#nltk.download('wordnet')
 
 	filename = 'mock-convo.txt'
 	c = Convobj(filename)
+	print(dict(c.e1))
+	print(dict(c.e2))
 	print(dict(c.whole))
+	# https://www.stefaanlippens.net/python-pickling-and-dealing-with-attributeerror-module-object-has-no-attribute-thing.html
+	#Convobj.__module__ = 'convobj' => look into this 
+	c.save()
 
 
 if __name__ == '__main__':
