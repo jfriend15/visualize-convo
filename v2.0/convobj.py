@@ -12,11 +12,18 @@ from collections import defaultdict
 import re
 import numpy as np
 import pickle
+import math
 
 class Convobj:
 
 	class Entity:
 		def __init__(self, text, name='test'):
+			
+			'''
+			TODO
+				-fix interrogativeness
+			'''
+			
 			
 			self.name = name
 
@@ -24,14 +31,14 @@ class Convobj:
 			words = self.clean_words(msgs)
 
 			self.msg_count = len(msgs)
-			self.avg_msg_length = self.avg_msg_length(msgs)
-			# TODO add msg length variablility +=
+			self.msg_length_avg, self.msg_length_std = self.avg_msg_length(msgs)
 			self.vocab_size = len(set(words))
 			#self.vocab_depth
 
 			self.sentiment_summary = self.sentiment_analysis(msgs)
 			self.interrogativeness = self.interrogative_freq(words)
 			#self.expletive_freq
+			self.freq_dist = self.freq_dist(words, max=50)
 
 
 		def __iter__(self):
@@ -76,20 +83,25 @@ class Convobj:
 
 		def avg_msg_length(self, msgs):
 			'''
-			Determines msg length based on number of words
+			Determines avg += std dev msg length based on number of words
 			'''
 			msg_lengths = []
 			for msg in msgs:
 				msg_lengths.append(len(msg.split(' ')))
+			mean = sum(msg_lengths)/len(msgs)	
+			
+			# standard deviation
+			for_std = [(l-mean)**2 for l in msg_lengths]
+			std = math.sqrt(sum(for_std)/len(for_std))
 
-			return sum(msg_lengths)/len(msgs)
+			return mean, std
 
 
-		def freq_dist(self, words):
+		def freq_dist(self, words, max=30):
 			total_freqs = dict()
 
 			fdist = nltk.FreqDist(words)
-			for word, freq in fdist.most_common(30): # just common  or total?
+			for word, freq in fdist.most_common(max): # just common  or total?
 				total_freqs[word] = freq
 				#print(u'{};{}'.format(word, freq))
 
@@ -197,14 +209,14 @@ def main():
 	#nltk.download('averaged_perceptron_tagger')
 	#nltk.download('wordnet')
 
-	filename = 'mock-convo.txt'
+	filename = 'matthew.txt'
 	c = Convobj(filename)
 	print(dict(c.e1))
 	print(dict(c.e2))
 	print(dict(c.whole))
 	# https://www.stefaanlippens.net/python-pickling-and-dealing-with-attributeerror-module-object-has-no-attribute-thing.html
 	#Convobj.__module__ = 'convobj' => look into this 
-	c.save()
+	c.save(filename='matthew-w-freq')
 
 
 if __name__ == '__main__':
