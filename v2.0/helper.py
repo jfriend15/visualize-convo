@@ -3,6 +3,7 @@ Helper functions.
 
 '''
 import math
+import datetime
 
 def generate_rgb(xyz):
 	'''
@@ -20,3 +21,5 @@ def generate_rgb(xyz):
 	
 
 #print(generate_rgb([16,41,8]))
+
+print(datetime.datetime.now().day)

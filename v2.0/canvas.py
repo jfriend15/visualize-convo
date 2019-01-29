@@ -8,10 +8,15 @@ import cairo
 import math
 import pickle
 import random
+import datetime
 
 from convobj import Convobj
 
 class Canvas(object):
+	
+	NOISE = 10 # at 1, no noise
+	SIZE = 20 # controls size of canvas 
+	
 	def __init__(self, filename, convobj):
 		
 		'''
@@ -20,61 +25,77 @@ class Canvas(object):
 			-set a seed for randomness
 			-create more variance for colors
 			-possible to give it different source than sentiment? they'll all be green
-			-use freq_dist for placement of something
 			-look into procedural generation
 			-determine scale based on size of canvas
 		'''
 		
 		# determine width and height
-		self.width = convobj.e1.msg_count * 100
-		self.height = convobj.e2.msg_count * 100
+		self.width = convobj.e1.msg_count * Canvas.SIZE
+		self.height = convobj.e2.msg_count * Canvas.SIZE
 		
 		# construct surface
 		self.surface = cairo.SVGSurface('../images/' + filename + '.svg', self.width, self.height)
 		cr = self.cr = cairo.Context(self.surface)
 		c = self.c = convobj
 		
-		self.r,self.g,self.b,self.r_var,self.g_var,self.b_var = self.generate_color_scheme(self.c)
+		self.pos, self.neu, self.neg = self.generate_color_scheme(self.c)
 		
 		self.generate_bg(self.cr)
 		
+		#self.draw_msg_lengths(self.cr)
 		self.draw_msg_lengths(self.cr)
 		self.draw_vocabs(self.cr, self.c)
-		self.draw_freq_dist(self.cr)
+		#self.draw_freq_dist(self.cr)
 		
-		self.surface.write_to_png('../images/' + filename + '.png')
+		t = datetime.datetime.now()
+		self.surface.write_to_png('../images/' + filename +
+								  '-' + str(t.month) + str(t.day) + str(t.hour) + str(t.minute) +
+								  '.png')
+		
 		cr.show_page()
-		self.surface.finish()
-		
+		self.surface.finish()		
+
+	
 	def circle(self, cr, center, radius):
 		cr.set_line_width(9)
-		cr.set_source_rgb(0.5, 0.6, 0.0)
+		cr.set_source_rgb(self.neu, 0, 0)
 
 		#cr.translate(center[0], center[1]) # or change scale between the 2 values to get ellipse
 		cr.arc(center[0],center[1],radius,0,2*math.pi)
 		cr.stroke_preserve()
 
-		cr.set_source_rgba(0.3, 0.4, 0.0, 0.3)
+		cr.set_source_rgba(self.neu, self.neg, 0, 0.3)
 		cr.fill()
 		
-	def generate_color_scheme(self, c):
+	def generate_color_scheme(self, c, test=False):
 		''' determine color scheme from sentiment '''
-		r = c.whole.sentiment_summary['positive']
-		g = c.whole.sentiment_summary['neutral']
-		b = c.whole.sentiment_summary['negative']
-		variance = abs(c.e1.sentiment_summary['neutral'] - c.e2.sentiment_summary['neutral'])
-		r_var = r + random.uniform(0, variance)
-		g_var = g + random.uniform(0, variance)
-		b_var = b + random.uniform(0, variance)
 		
-		return r,g,b,r_var,g_var,b_var
+		def generate_analagous(color):
+			variance = Canvas.NOISE * (c.e1.sentiment_summary['neutral'] - c.e2.sentiment_summary['neutral'])
+			return color + random.uniform(-variance, variance)
+		
+		pos = c.whole.sentiment_summary['positive']
+		neu = c.whole.sentiment_summary['neutral']
+		neg = c.whole.sentiment_summary['negative']
+		
+		'''pos_var = generate_analagous(pos)
+		neu_var = generate_analagous(neu)
+		neg_var = generate_analagous(neg)'''
+		
+		'''if test:
+			self.cr.save()
+			for color in [pos, neu, neg]:
+				self.cr.set_source_rgb(color,0,0)
+				move_to()'''
+		
+		return pos, neu, neg
 	
 	def generate_bg(self, cr):
 		''' determine bg color '''
 		cr.save()
 		cr.set_line_width(0.01)
 		cr.rectangle(0,0,self.width,self.height)
-		cr.set_source_rgb(self.r,self.g,self.b)
+		cr.set_source_rgba(self.pos,self.neu,self.neg, 0.5)
 		cr.fill()
 		cr.restore()
 		
@@ -82,22 +103,22 @@ class Canvas(object):
 		whole_freqs = self.c.whole.freq_dist
 		e1_freqs = self.c.e1.freq_dist
 		e2_freqs = self.c.e2.freq_dist
+		freq_size = len(whole_freqs)
 		
 		cr.save()
 		# scale canvas to 1x1
-		cr.scale(self.width, self.height)
-		cr.set_source_rgba(self.g, self.b, self.r, 0.5)
-		#cr.set_line_width(0.001)
+		cr.scale(freq_size, freq_size)
+		cr.set_source_rgba(self.neu, self.neg, self.pos, 0.5)
 		
-		stretch = len(whole_freqs)
 		i = 0
 		for word, value in whole_freqs.items():
-			x = i / stretch
-			y = 0.3
+			x = i
+			y = 10
 			
 			v2 = 1 / value
-			cr.set_line_width(value / 300)
+			cr.set_line_width(value * freq_size / 100)
 			
+			# Retrieve value from each entity for the word if it exists
 			try:
 				v1 = 1 / e1_freqs[word]
 			except KeyError:
@@ -112,7 +133,7 @@ class Canvas(object):
 				cr.move_to(x,y)
 				cr.curve_to(x + v1, y + v1,
 							x + v1 + v2, y + v1 + v2,
-							1 - x - v3, 1 - y - v3)
+							freq_size - x - v3, freq_size - y - v3)
 				cr.stroke()
 			elif v1:
 				cr.move_to(x + v1, y + v1)
@@ -120,7 +141,7 @@ class Canvas(object):
 				cr.stroke()
 			elif v3:
 				cr.move_to(x + v2, y + v2)
-				cr.line_to(1 - (x + v3), 1 - (x + v3))
+				cr.line_to(freq_size - (x + v3), freq_size - (x + v3))
 				cr.stroke()
 				
 			i += 1 
@@ -134,20 +155,22 @@ class Canvas(object):
 		hyp = self.c.whole.msg_length_avg
 		std = self.c.whole.msg_length_std
 		
-		ctr = (1/2 + 1/self.c.e1.msg_length_avg,
-			   1/2 + 1/self.c.e2.msg_length_avg)
-		cr.set_source_rgb(0.0,0.1,0.0)
-		cr.set_line_width(0.001)
+		# TODO map the below between 0 and 1/2--> trig function?
+		#msg_length_diff = self.c.e2.msg_length_avg - self.c.e1.msg_length_avg
+		#ctr = (1/(msg_length_diff + self.c.e1.msg_length_std * random.choice([-1,1])),
+			   #1/(msg_length_diff + self.c.e2.msg_length_std * random.choice([-1,1])))
+		ctr = (1/2, 1/2)
+		cr.set_source_rgba(self.pos,0,self.neg, 0.6)
+		cr.set_line_width(0.005)
 		
 		angle = (2 * math.pi) / self.c.whole.msg_count
-		
 		for i in range(self.c.whole.msg_count):
-			theta = angle * i
-			this_hyp = (1/hyp + 1/random.uniform(0, std))
+			theta = angle * i / random.uniform(-std, std)
+			this_hyp = (1/hyp + 1 / random.uniform(-std, std))
 			y = this_hyp * math.sin(theta)
 			x = this_hyp * math.cos(theta)
 			
-			cr.move_to(ctr[0], ctr[1])
+			cr.move_to(ctr[0] + 0.3 * x, ctr[1] + 0.3 * y)
 			cr.line_to(ctr[0] + x, ctr[1] + y)
 			cr.stroke()
 			
@@ -155,36 +178,39 @@ class Canvas(object):
 		
 	def draw_vocabs(self, cr, c):
 		cr.save()
+		#cr.scale(self.width,self.height)
 		cr.scale(1,1)
-		# use overall vocab size to make a clip space
+		
+		# Use overall vocab size to make a clip space
 		c0 = dict()
 		c0['center'] = [self.width/2, self.height/2]
-		c0['radius'] = c.whole.vocab_size * 10
+		# map below between 0 and 1/2
+		c0['radius'] = c.whole.vocab_size
 		cr.arc(c0['center'][0], c0['center'][1], c0['radius'], 0, 2*math.pi)
-		cr.set_source_rgba(self.r_var, self.g_var, self.b_var, 0.9)
+		cr.set_source_rgba(0, self.neu, 0, 0.7)
 		cr.fill()
 		
 		cr.arc(c0['center'][0], c0['center'][1], c0['radius'], 0, 2*math.pi)
-		cr.clip()
+		#cr.clip()
 		
 		c1 = dict()
 		c1['center'] = [self.width/3, self.height/3]
-		c1['radius'] = c.e1.vocab_size * 10
+		c1['radius'] = c.e1.vocab_size
 		
 		c2 = dict()
 		c2['center'] = [2*self.width/3, 2*self.height/3]
-		c2['radius'] = c.e2.vocab_size * 10
+		c2['radius'] = c.e2.vocab_size
 		
 		self.circle(self.cr, c1['center'], c1['radius'])
 		self.circle(self.cr, c2['center'], c2['radius'])
-		cr.paint()
+		#cr.paint()
 		
 		cr.restore()
 		
 
 def main():
-	convo = pickle.load(open('convo-matthew-w-freq.pkl', 'rb'))
-	c = Canvas('layering-3', convo)
+	convo = pickle.load(open('convo-anna-w-freq.pkl', 'rb'))
+	c = Canvas('vocabs', convo)
 	
 if __name__ == '__main__':
 	main()

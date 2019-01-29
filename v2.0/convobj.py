@@ -209,14 +209,14 @@ def main():
 	#nltk.download('averaged_perceptron_tagger')
 	#nltk.download('wordnet')
 
-	filename = 'matthew.txt'
+	filename = 'mock-convo.txt'
 	c = Convobj(filename)
 	print(dict(c.e1))
 	print(dict(c.e2))
 	print(dict(c.whole))
 	# https://www.stefaanlippens.net/python-pickling-and-dealing-with-attributeerror-module-object-has-no-attribute-thing.html
 	#Convobj.__module__ = 'convobj' => look into this 
-	c.save(filename='matthew-w-freq')
+	c.save(filename='anna-w-freq')
 
 
 if __name__ == '__main__':
