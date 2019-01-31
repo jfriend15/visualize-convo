@@ -148,7 +148,9 @@ def main():
 	#all_words = clean_words(raw_text.read())
 
 	e1, e2 = define_entities(raw_text)
-	print(interrogative_freq(e1))
+	print(e1)
+
+	e1_words = clean_words(e1)
 
 	#e1_words = clean_words(e1)
 	#e2_words = clean_words(e2)
