@@ -226,9 +226,9 @@ class Canvas(object):
 		cr.restore()
 		
 
-def main():
+'''def main():
 	convo = pickle.load(open('convo-anna-w-freq.pkl', 'rb'))
 	c = Canvas('freq-scale-change', convo)
 	
 if __name__ == '__main__':
-	main()
+	main()'''

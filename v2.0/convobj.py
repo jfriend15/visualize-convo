@@ -215,6 +215,6 @@ class Convobj:
 
 
 	def save(self, filename='test'):
-		with open('convo-' + filename + '.pkl', 'wb') as file:
+		with open('pickles/' + filename + '.pkl', 'wb') as file:
 			pickle.dump(self, file)
 		file.close()

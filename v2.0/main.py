@@ -8,7 +8,9 @@ FUTURE MODS
 import nltk
 from os import path
 import sys
+import pickle
 from convobj import Convobj
+from canvas import Canvas
 
 def main():
 
@@ -18,23 +20,24 @@ def main():
 	#nltk.download('averaged_perceptron_tagger')
 	#nltk.download('wordnet')
 
-	if sys.argv[0]:
-		name = sys.argv[0]
+	if len(sys.argv) > 1:
+		name = sys.argv[1]
 	else:
-		name = 'mock-convo' # TODO allow user input
-	
-	filename = name + '.txt'
+		name = 'anna'
 
 	if path.exists('pickles/' + name + '.pkl'):
 		convo = pickle.load(open('pickles/' + name + '.pkl', 'rb'))
+		painting = Canvas(name, convo)
+
 	elif path.exists('../convos/' + name + '.txt'):
 		convo = Convobj('../convos/' + name + '.txt')
 		convo.save(name)
-	else:
-		print('Could not find file. Please try again.')
-		end()
+		painting = Canvas(name, convo)
 
-	painting = Canvas(name, convo)
+	else:
+		print('Did not locate a ' + name +  ' txt or pkl file. Please try again.')
+		exit()
+
 
 
 if __name__ == '__main__':
