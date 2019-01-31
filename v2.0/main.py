@@ -25,10 +25,10 @@ def main():
 	
 	filename = name + '.txt'
 
-	if path.exists(name + '.pkl'):
-		convo = pickle.load(open(name + '.pkl', 'rb'))
-	elif path.exists(name + '.txt'):
-		convo = Convobj(name + '.txt')
+	if path.exists('pickles/' + name + '.pkl'):
+		convo = pickle.load(open('pickles/' + name + '.pkl', 'rb'))
+	elif path.exists('../convos/' + name + '.txt'):
+		convo = Convobj('../convos/' + name + '.txt')
 		convo.save(name)
 	else:
 		print('Could not find file. Please try again.')

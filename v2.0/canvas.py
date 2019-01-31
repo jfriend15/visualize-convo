@@ -38,7 +38,7 @@ class Canvas(object):
 		self.height = convobj.e2.msg_count * Canvas.SIZE
 		
 		# construct surface
-		self.surface = cairo.SVGSurface('../images/' + filename + '.svg', self.width, self.height)
+		self.surface = cairo.SVGSurface('../images/svgs/' + filename + '.svg', self.width, self.height)
 		cr = self.cr = cairo.Context(self.surface)
 		c = self.c = convobj
 		
