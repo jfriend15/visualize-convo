@@ -15,15 +15,22 @@ import pickle
 import math
 
 class Convobj:
+	'''
+	Object that describes a conversation between two speakers
+	'''
 
 	class Entity:
 		def __init__(self, text, name='test'):
 			
 			'''
-			TODO
-				-fix interrogativeness
+			Object that describes the content of a speaker in a text conversation
+
+			FUTURE MODS
+				-scale interrogativeness (how often the entity asks qs)
+				 in a meaningful way
+				-measure vocab "depth" (how complex the words)
+				-measure expletiveness (how often does the entity swear)
 			'''
-			
 			
 			self.name = name
 
@@ -33,45 +40,44 @@ class Convobj:
 			self.msg_count = len(msgs)
 			self.msg_length_avg, self.msg_length_std = self.avg_msg_length(msgs)
 			self.vocab_size = len(set(words))
-			#self.vocab_depth
 
 			self.sentiment_summary = self.sentiment_analysis(msgs)
 			self.interrogativeness = self.interrogative_freq(words)
-			#self.expletive_freq
 			self.freq_dist = self.freq_dist(words, max=50)
 
 
 		def __iter__(self):
 			for attr, value in self.__dict__.items():
 				yield attr, value
-				
-
-		def print(self):
-			print('ENTITY', self.name)
 
 
 		def clean_words(self, msgs):
-			default_stopwords = set(nltk.corpus.stopwords.words('english'))
-			#lemma = nltk.wordnet.WordNetLemmatizer()
+			'''
+			Returns a list of all words used by the entity.
 
+			FUTURE MODS
+				-handle textspeak e.g. u, idk
+				-explore stemming
+				-explore lemmatizing
+				-handle contractions
+			'''
+			default_stopwords = set(nltk.corpus.stopwords.words('english'))
+
+			# Retrieve all words present in messages
 			raw_words = []
 			for m in msgs:
 				raw_words.extend(m.split(' '))
-				
+			
+			# Clean those words of punctuation
 			words = []
 			for word in raw_words:	
 				words.extend(re.findall('^[A-Za-z]+', word))
 
-			#words = [word for word in raw_words if len(word) > 1]
+			# Make all words lowercase to condense copies later
 			words = [word.lower() for word in words]
+
+			# Remove all nltk-defined stopwards
 			words = [word for word in words if word not in default_stopwords]
-			#words = [lemma.lemmatize(word) for word in words]
-			'''
-			TODO
-				- handle textspeak e.g. u, idk => another function
-				- look into stemming e.g. playing => play
-				- handle contractions e.g. i'll => i
-			'''
 
 			return words
 
@@ -83,14 +89,14 @@ class Convobj:
 
 		def avg_msg_length(self, msgs):
 			'''
-			Determines avg += std dev msg length based on number of words
+			Returns average message length and standard deviation
 			'''
 			msg_lengths = []
 			for msg in msgs:
 				msg_lengths.append(len(msg.split(' ')))
 			mean = sum(msg_lengths)/len(msgs)	
 			
-			# standard deviation
+			# Handle standard deviation
 			for_std = [(l-mean)**2 for l in msg_lengths]
 			std = math.sqrt(sum(for_std)/len(for_std))
 
@@ -98,17 +104,27 @@ class Convobj:
 
 
 		def freq_dist(self, words, max=30):
+			'''
+			Returns frequency distribution of words used by entity
+
+			FUTURE MODS
+				-consider returning all of fdist instead of most common
+			'''
 			total_freqs = dict()
 
 			fdist = nltk.FreqDist(words)
-			for word, freq in fdist.most_common(max): # just common  or total?
+			for word, freq in fdist.most_common(max):
 				total_freqs[word] = freq
-				#print(u'{};{}'.format(word, freq))
 
 			return total_freqs
 
 
 		def collocations(self, words):
+			'''
+			Rerturns frequency distribution of collocations
+
+			NOT CURRENTLY IN USE
+			'''
 			bigrams =  defaultdict(int)
 			bg_meas = BigramAssocMeasures()
 
@@ -118,15 +134,18 @@ class Convobj:
 			for colloc in bi_collocs:
 				bigrams[colloc] += 1
 
-			return bigrams # returns defaultdict, not dict!!!
+			return bigrams
 
 
 		def interrogative_freq(self, words):
 			'''
-			Determine frequency of questions asked in text.
-			Ref: 
-				https://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
-				https://grammar.collinsdictionary.com/us/easy-learning/wh-words
+			Determines frequency of questions asked in text.
+
+			REFS 
+				-https://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
+				-https://grammar.collinsdictionary.com/us/easy-learning/wh-words
+
+			NOT CURRENTLY IN USE
 			'''
 			tagged = nltk.pos_tag(words)
 
@@ -140,8 +159,8 @@ class Convobj:
 
 		def sentiment_analysis(self, sentences, freqs=True):
 			'''
-			Determines sentiment score PER MESSAGE, NOT per sentence.
-			Scores can be frequencies.
+			Determines sentiment score PER MESSAGE, NOT per sentence
+			Scores are frequencies
 			'''
 			afinn = Afinn()
 			sentiment_summary = defaultdict(int)
@@ -155,7 +174,6 @@ class Convobj:
 				else:
 					sentiment_summary['negative'] += 1
 
-			# TODO make it work for 1 entity
 			if freqs:
 				sentiment_summary['neutral'] = sentiment_summary['neutral']/len(sentences)
 				sentiment_summary['positive'] = sentiment_summary['positive']/len(sentences)
@@ -177,7 +195,7 @@ class Convobj:
 
 	def define_entities(self, raw_text):
 		"""
-		Differentiate words between the two speakers. Returns a string for each.
+		Differentiates words between the two speakers. Returns a string for each.
 		"""
 		e1 = ''
 		e2 = ''
@@ -195,29 +213,8 @@ class Convobj:
 
 		return e1, e2
 
+
 	def save(self, filename='test'):
 		with open('convo-' + filename + '.pkl', 'wb') as file:
 			pickle.dump(self, file)
 		file.close()
-
-
-def main():
-	
-	# Uncomment on first use of program
-	#nltk.download('stopwords')
-	#nltk.download('punkt')
-	#nltk.download('averaged_perceptron_tagger')
-	#nltk.download('wordnet')
-
-	filename = 'mock-convo.txt'
-	c = Convobj(filename)
-	print(dict(c.e1))
-	print(dict(c.e2))
-	print(dict(c.whole))
-	# https://www.stefaanlippens.net/python-pickling-and-dealing-with-attributeerror-module-object-has-no-attribute-thing.html
-	#Convobj.__module__ = 'convobj' => look into this 
-	c.save(filename='anna-w-freq')
-
-
-if __name__ == '__main__':
-	main()

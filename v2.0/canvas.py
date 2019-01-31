@@ -9,6 +9,8 @@ import math
 import pickle
 import random
 import datetime
+from scipy import interp, arange
+from numpy import linspace
 
 from convobj import Convobj
 
@@ -16,6 +18,8 @@ class Canvas(object):
 	
 	NOISE = 10 # at 1, no noise
 	SIZE = 20 # controls size of canvas 
+	MAX_VOCAB_SIZE = 300
+	MAX_MSG_VAR = 20 # how much msg length can vary between the two entities
 	
 	def __init__(self, filename, convobj):
 		
@@ -42,10 +46,9 @@ class Canvas(object):
 		
 		self.generate_bg(self.cr)
 		
-		#self.draw_msg_lengths(self.cr)
 		self.draw_msg_lengths(self.cr)
 		self.draw_vocabs(self.cr, self.c)
-		#self.draw_freq_dist(self.cr)
+		self.draw_freq_dist(self.cr)
 		
 		t = datetime.datetime.now()
 		self.surface.write_to_png('../images/' + filename +
@@ -56,16 +59,11 @@ class Canvas(object):
 		self.surface.finish()		
 
 	
-	def circle(self, cr, center, radius):
-		cr.set_line_width(9)
-		cr.set_source_rgb(self.neu, 0, 0)
+	def map(self, i, xlim, ylim=0.5, yst=0):
+		x = arange(xlim)
+		y = linspace(yst, ylim, num=xlim)
+		return interp(i, x, y)
 
-		#cr.translate(center[0], center[1]) # or change scale between the 2 values to get ellipse
-		cr.arc(center[0],center[1],radius,0,2*math.pi)
-		cr.stroke_preserve()
-
-		cr.set_source_rgba(self.neu, self.neg, 0, 0.3)
-		cr.fill()
 		
 	def generate_color_scheme(self, c, test=False):
 		''' determine color scheme from sentiment '''
@@ -90,6 +88,7 @@ class Canvas(object):
 		
 		return pos, neu, neg
 	
+
 	def generate_bg(self, cr):
 		''' determine bg color '''
 		cr.save()
@@ -99,6 +98,7 @@ class Canvas(object):
 		cr.fill()
 		cr.restore()
 		
+
 	def draw_freq_dist(self, cr):
 		whole_freqs = self.c.whole.freq_dist
 		e1_freqs = self.c.e1.freq_dist
@@ -107,16 +107,23 @@ class Canvas(object):
 		
 		cr.save()
 		# scale canvas to 1x1
-		cr.scale(freq_size, freq_size)
+		#cr.scale(freq_size, freq_size)
+		cr.scale(self.width, self.height)
 		cr.set_source_rgba(self.neu, self.neg, self.pos, 0.5)
 		
 		i = 0
+		px = -1
 		for word, value in whole_freqs.items():
-			x = i
-			y = 10
+			# x position alternates sides from center
+			if px > 0:
+				x = 1/2 + self.map(i, freq_size) * -1
+			else:
+				x = 1/2 + self.map(i, freq_size) 
+			# y position is arbitrarily chosen
+			y = 0.2
 			
 			v2 = 1 / value
-			cr.set_line_width(value * freq_size / 100)
+			cr.set_line_width(value / 100)
 			
 			# Retrieve value from each entity for the word if it exists
 			try:
@@ -133,7 +140,7 @@ class Canvas(object):
 				cr.move_to(x,y)
 				cr.curve_to(x + v1, y + v1,
 							x + v1 + v2, y + v1 + v2,
-							freq_size - x - v3, freq_size - y - v3)
+							1- x - v3, 1 - y - v3)
 				cr.stroke()
 			elif v1:
 				cr.move_to(x + v1, y + v1)
@@ -141,13 +148,15 @@ class Canvas(object):
 				cr.stroke()
 			elif v3:
 				cr.move_to(x + v2, y + v2)
-				cr.line_to(freq_size - (x + v3), freq_size - (x + v3))
+				cr.line_to(1 - (x + v3), 1 - (x + v3))
 				cr.stroke()
 				
 			i += 1 
+			px = x # keep prev x to check identity
 				
 		cr.restore()
 				
+
 	def draw_msg_lengths(self, cr):
 		''' avg message length ''' 
 		cr.save()
@@ -155,11 +164,18 @@ class Canvas(object):
 		hyp = self.c.whole.msg_length_avg
 		std = self.c.whole.msg_length_std
 		
-		# TODO map the below between 0 and 1/2--> trig function?
-		#msg_length_diff = self.c.e2.msg_length_avg - self.c.e1.msg_length_avg
-		#ctr = (1/(msg_length_diff + self.c.e1.msg_length_std * random.choice([-1,1])),
-			   #1/(msg_length_diff + self.c.e2.msg_length_std * random.choice([-1,1])))
-		ctr = (1/2, 1/2)
+		# Determine how closely msg length compares between entities
+		msg_length_diff = self.c.e2.msg_length_avg - self.c.e1.msg_length_avg
+
+		# Determine center by
+		# 1) Map the difference in msg lengths +- standard deviation to range of 
+		#    [0, 1/2] where the max input value is 10 (guess)
+		# 2) Repeat for each entity
+		# 3) Add values to offset center at (1/2, 1/2)
+		c0 = self.map(msg_length_diff + self.c.e1.msg_length_std, Canvas.MAX_MSG_VAR) # * random.choice([-1,1]), 10)
+		c1 = self.map(msg_length_diff + self.c.e2.msg_length_std, Canvas.MAX_MSG_VAR) # * random.choice([-1,1]), 10)
+		ctr = (1/2 + c0 * random.choice([-1,1]), 
+			1/2 + c1 * random.choice([-1,1]))
 		cr.set_source_rgba(self.pos,0,self.neg, 0.6)
 		cr.set_line_width(0.005)
 		
@@ -176,41 +192,43 @@ class Canvas(object):
 			
 		cr.restore()
 		
+
 	def draw_vocabs(self, cr, c):
 		cr.save()
-		#cr.scale(self.width,self.height)
-		cr.scale(1,1)
+		cr.scale(self.width,self.height)
 		
 		# Use overall vocab size to make a clip space
-		c0 = dict()
-		c0['center'] = [self.width/2, self.height/2]
-		# map below between 0 and 1/2
-		c0['radius'] = c.whole.vocab_size
-		cr.arc(c0['center'][0], c0['center'][1], c0['radius'], 0, 2*math.pi)
+		r0 = self.map(c.whole.vocab_size, Canvas.MAX_VOCAB_SIZE)
+		cr.set_line_width(1/Canvas.MAX_VOCAB_SIZE)
 		cr.set_source_rgba(0, self.neu, 0, 0.7)
+		cr.arc(1/2, 1/2, r0, 0, 2*math.pi)
+		cr.stroke_preserve()
 		cr.fill()
-		
-		cr.arc(c0['center'][0], c0['center'][1], c0['radius'], 0, 2*math.pi)
+		#cr.arc(1/2, 1/2, r0, 0, 2*math.pi)
 		#cr.clip()
 		
-		c1 = dict()
-		c1['center'] = [self.width/3, self.height/3]
-		c1['radius'] = c.e1.vocab_size
+		# Paint circles from individual vocab sizes in clip space
+		r1 = self.map(c.e1.vocab_size, Canvas.MAX_VOCAB_SIZE)
+		cr.set_source_rgb(self.neu, 0, 0)
+		cr.arc(1/3, 1/3, r1, 0, 2*math.pi)
+		cr.stroke_preserve()
+		cr.set_source_rgba(self.neu, self.neg, 0, 0.3)
+		cr.fill()
 		
-		c2 = dict()
-		c2['center'] = [2*self.width/3, 2*self.height/3]
-		c2['radius'] = c.e2.vocab_size
+		r2 = self.map(c.e2.vocab_size, Canvas.MAX_VOCAB_SIZE)
+		cr.set_source_rgb(self.neu, 0, 0)
+		cr.arc(2/3, 2/3, r2, 0, 2*math.pi)
+		cr.stroke_preserve()
+		cr.set_source_rgba(self.neu, self.neg, 0, 0.3)
+		cr.fill()
 		
-		self.circle(self.cr, c1['center'], c1['radius'])
-		self.circle(self.cr, c2['center'], c2['radius'])
 		#cr.paint()
-		
 		cr.restore()
 		
 
 def main():
 	convo = pickle.load(open('convo-anna-w-freq.pkl', 'rb'))
-	c = Canvas('vocabs', convo)
+	c = Canvas('freq-scale-change', convo)
 	
 if __name__ == '__main__':
 	main()
