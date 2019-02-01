@@ -20,28 +20,27 @@ class Canvas(object):
 	SIZE = 20 # controls size of canvas 
 	MAX_VOCAB_SIZE = 300
 	MAX_MSG_VAR = 20 # how much msg length can vary between the two entities
-	
+	MAX_WORD_FREQ = 20 # how many times a word is mentioned
+
 	def __init__(self, filename, convobj):
 		
 		'''
 		TODO
 			-add noise to position of circles
 			-set a seed for randomness
-			-create more variance for colors
-			-possible to give it different source than sentiment? they'll all be green
 			-look into procedural generation
-			-determine scale based on size of canvas
 		'''
 		
-		# determine width and height
+		# Determine width and height
 		self.width = convobj.e1.msg_count * Canvas.SIZE
 		self.height = convobj.e2.msg_count * Canvas.SIZE
 		
-		# construct surface
+		# Construct surface
 		self.surface = cairo.SVGSurface('../images/svgs/' + filename + '.svg', self.width, self.height)
 		cr = self.cr = cairo.Context(self.surface)
 		c = self.c = convobj
 		
+		# Paint
 		self.pos, self.neu, self.neg = self.generate_color_scheme(self.c)
 		
 		self.generate_bg(self.cr)
@@ -50,6 +49,7 @@ class Canvas(object):
 		self.draw_vocabs(self.cr, self.c)
 		self.draw_freq_dist(self.cr)
 		
+		# Save
 		t = datetime.datetime.now()
 		self.surface.write_to_png('../images/' + filename +
 								  '-' + str(t.month) + str(t.day) + str(t.hour) + str(t.minute) +
@@ -60,15 +60,22 @@ class Canvas(object):
 
 	
 	def map(self, i, xlim, ylim=0.5, yst=0):
+		''' Helper function used for mapping values to canvas's coordinates '''
 		x = arange(xlim)
 		y = linspace(yst, ylim, num=xlim)
 		return interp(i, x, y)
 
 		
 	def generate_color_scheme(self, c, test=False):
-		''' determine color scheme from sentiment '''
+		''' 
+		Determine color scheme from text sentiment
+		
+		FUTURE MODS
+			-create more complex color scheme
+		 '''
 		
 		def generate_analagous(color):
+			''' NOT CURRENTLY IN USE '''
 			variance = Canvas.NOISE * (c.e1.sentiment_summary['neutral'] - c.e2.sentiment_summary['neutral'])
 			return color + random.uniform(-variance, variance)
 		
@@ -90,75 +97,79 @@ class Canvas(object):
 	
 
 	def generate_bg(self, cr):
-		''' determine bg color '''
+		''' Determine background color '''
 		cr.save()
 		cr.set_line_width(0.01)
 		cr.rectangle(0,0,self.width,self.height)
-		cr.set_source_rgba(self.pos,self.neu,self.neg, 0.5)
+		cr.set_source_rgb(self.neg,self.neu,self.pos)
 		cr.fill()
 		cr.restore()
 		
 
 	def draw_freq_dist(self, cr):
+		'''
+		Draw "freely" based on coordinates mapped from word frequencies
+
+		FUTURE MODS
+			-look into wrapping lines around canvas
+		'''
 		whole_freqs = self.c.whole.freq_dist
 		e1_freqs = self.c.e1.freq_dist
 		e2_freqs = self.c.e2.freq_dist
 		freq_size = len(whole_freqs)
 		
 		cr.save()
-		# scale canvas to 1x1
-		#cr.scale(freq_size, freq_size)
 		cr.scale(self.width, self.height)
-		cr.set_source_rgba(self.neu, self.neg, self.pos, 0.5)
 		
-		i = 0
-		px = -1
 		for word, value in whole_freqs.items():
-			# x position alternates sides from center
-			if px > 0:
-				x = 1/2 + self.map(i, freq_size) * -1
-			else:
-				x = 1/2 + self.map(i, freq_size) 
-			# y position is arbitrarily chosen
-			y = 0.2
-			
-			v2 = 1 / value
-			cr.set_line_width(value / 100)
-			
+			start = (random.uniform(-0.05,1.05), random.uniform(-0.05,1.05))
+			cr.move_to(start[0], start[1])
+
+			# Determine end point 
+			w_val = self.map(value, Canvas.MAX_WORD_FREQ) # xlim may be too big
+			cr.set_line_width(self.map(value, Canvas.MAX_WORD_FREQ, ylim=0.1))
+			end = (start[0] + w_val, start[1] + w_val)
+
 			# Retrieve value from each entity for the word if it exists
 			try:
-				v1 = 1 / e1_freqs[word]
+				e1_val = self.map(e1_freqs[word], freq_size)
 			except KeyError:
-				v1 = None
+				e1_val = None
 				
 			try:
-				v3 = 1 / e2_freqs[word]
+				e2_val = self.map(e2_freqs[word], freq_size)
 			except KeyError:
-				v3 = None
+				e2_val = None
 			
-			if v1 and v3:
-				cr.move_to(x,y)
-				cr.curve_to(x + v1, y + v1,
-							x + v1 + v2, y + v1 + v2,
-							1- x - v3, 1 - y - v3)
+			cr.set_source_rgba(self.neu, self.neg, self.pos, 0.4)
+
+			# If 2 available values, draw a curve
+			if e1_val and e2_val:
+				mdpt1 = (start[0] + random.choice([e1_val, -1 * e1_val]), 
+						1 - start[1] + random.choice([e2_val, -1 * e2_val]))
+				mdpt2 = (1 - start[0] + random.choice([e1_val, -1 * e2_val]), 
+						start[1] + random.choice([-1 * e1_val, e2_val]))
+				cr.curve_to(mdpt1[0], mdpt1[1],
+							mdpt2[0], mdpt2[1],
+							end[0], end[1])
 				cr.stroke()
-			elif v1:
-				cr.move_to(x + v1, y + v1)
-				cr.line_to(x + v2, y + v2)
+
+			# Else, move start position and draw a line
+			elif e1_val:
+				cr.move_to(start[0], e1_val)
+				cr.line_to(end[0], end[1])
 				cr.stroke()
-			elif v3:
-				cr.move_to(x + v2, y + v2)
-				cr.line_to(1 - (x + v3), 1 - (x + v3))
+
+			elif e2_val:
+				cr.move_to(e2_val, start[1])
+				cr.line_to(end[0], end[1])
 				cr.stroke()
-				
-			i += 1 
-			px = x # keep prev x to check identity
-				
+
 		cr.restore()
 				
 
 	def draw_msg_lengths(self, cr):
-		''' avg message length ''' 
+		''' Draw radial lines based on message lengths ''' 
 		cr.save()
 		cr.scale(self.width, self.height)
 		hyp = self.c.whole.msg_length_avg
@@ -194,13 +205,14 @@ class Canvas(object):
 		
 
 	def draw_vocabs(self, cr, c):
+		''' Paint overlapping circles based on vocabularies '''
 		cr.save()
 		cr.scale(self.width,self.height)
 		
 		# Use overall vocab size to make a clip space
 		r0 = self.map(c.whole.vocab_size, Canvas.MAX_VOCAB_SIZE)
 		cr.set_line_width(1/Canvas.MAX_VOCAB_SIZE)
-		cr.set_source_rgba(0, self.neu, 0, 0.7)
+		cr.set_source_rgba(self.pos, 0, 0, 0.4)
 		cr.arc(1/2, 1/2, r0, 0, 2*math.pi)
 		cr.stroke_preserve()
 		cr.fill()
@@ -212,23 +224,23 @@ class Canvas(object):
 		cr.set_source_rgb(self.neu, 0, 0)
 		cr.arc(1/3, 1/3, r1, 0, 2*math.pi)
 		cr.stroke_preserve()
-		cr.set_source_rgba(self.neu, self.neg, 0, 0.3)
+		cr.set_source_rgba(self.neg, self.pos, 0, 0.4)
 		cr.fill()
 		
 		r2 = self.map(c.e2.vocab_size, Canvas.MAX_VOCAB_SIZE)
 		cr.set_source_rgb(self.neu, 0, 0)
 		cr.arc(2/3, 2/3, r2, 0, 2*math.pi)
 		cr.stroke_preserve()
-		cr.set_source_rgba(self.neu, self.neg, 0, 0.3)
+		cr.set_source_rgba(self.neg, self.pos, 0, 0.4)
 		cr.fill()
 		
 		#cr.paint()
 		cr.restore()
 		
-
+# For testing purposes 
 '''def main():
-	convo = pickle.load(open('convo-anna-w-freq.pkl', 'rb'))
-	c = Canvas('freq-scale-change', convo)
+	convo = pickle.load(open('pickles/jacob.pkl', 'rb'))
+	c = Canvas('freq-tweak-choice', convo)
 	
 if __name__ == '__main__':
 	main()'''
